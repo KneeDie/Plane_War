@@ -1,3 +1,4 @@
+import os
 import random
 
 import pygame
@@ -6,18 +7,36 @@ import Data_List
 
 # 游戏初始化
 pygame.init()
+pygame.mixer.init()
 screen = pygame.display.set_mode((Data_List.WIDTH, Data_List.HEIGHT))
 pygame.display.set_caption("飞机大战")
 clock = pygame.time.Clock()
 
+# 引入相关图片
+background_img = (pygame.image.load(os.path.join("img", "background.png")).convert())
+player_img = (pygame.image.load
+              (os.path.join("img", "player.png")).convert())
+rock_img = (pygame.image.load
+            (os.path.join("img", "rock.png")).convert())
+bullet_img = (pygame.image.load
+              (os.path.join("img", "bullet.png")).convert())
+
+#引入相关音频
+pygame.mixer.music.load(os.path.join("sound","background.ogg"))
+pygame.mixer.music.set_volume(0.3)
+shoot_sound = pygame.mixer.Sound(os.path.join("sound","shoot.wav"))
+expl_sounds = [
+    pygame.mixer.Sound(os.path.join("sound","expl0.wav")),
+    pygame.mixer.Sound(os.path.join("sound","expl1.wav"))
+]
 
 # 定义一个玩家类
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
         # 添加玩家的外观
-        self.image = pygame.Surface((50, 40))
-        self.image.fill(Data_List.GREEN)
+        self.image = pygame.transform.scale(player_img, (50, 40))
+        self.image.set_colorkey(Data_List.BLACK)
 
         # 设置玩家位置
         self.rect = self.image.get_rect()
@@ -47,6 +66,7 @@ class Player(pygame.sprite.Sprite):
         bullet = Bullet(self.rect.centerx, self.rect.centery)
         all_sprites.add(bullet)
         bullets.add(bullet)
+        shoot_sound.play()
 
 
 # 定义一个陨石类
@@ -54,8 +74,8 @@ class Rock(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
         # 添加陨石的外观
-        self.image = pygame.Surface((30, 30))
-        self.image.fill(Data_List.RED)
+        self.image = rock_img
+        self.image.set_colorkey(Data_List.BLACK)
 
         # 设置陨石位置
         self.rect = self.image.get_rect()
@@ -84,8 +104,8 @@ class Bullet(pygame.sprite.Sprite):
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)
         # 添加子弹的外观
-        self.image = pygame.Surface((10, 20))
-        self.image.fill(Data_List.YELLOW)
+        self.image = bullet_img
+        self.image.set_colorkey(Data_List.BLACK)
 
         # 设置陨石位置
         self.rect = self.image.get_rect()
@@ -112,6 +132,8 @@ bullets = pygame.sprite.Group()
 # 生成玩家对象
 player = Player()
 all_sprites.add(player)
+# 开始播放背景音乐
+pygame.mixer.music.play(-1)
 # 循环生成陨石对象
 for i in range(8):
     rock = Rock()
@@ -135,15 +157,22 @@ while running:
     # 更新所有角色
     all_sprites.update()
 
-    #对子弹和陨石进行碰撞检测
-    hits_rockAndbullet = pygame.sprite.spritecollide(player,rocks,False)
-    if hits_rockAndbullet:
-        running = False
+    # 对子弹与陨石进行碰撞检测
+    hits_rockAndBullet = pygame.sprite.groupcollide(rocks, bullets, True, True)
+    for hit in hits_rockAndBullet:
+        random.choice(expl_sounds).play()
+        r = Rock()
+        all_sprites.add(r)
+        rocks.add(r)
 
-    #对玩家与陨石进行碰撞检测
+    # 对玩家和陨石进行碰撞检测
+    hits_playerAndRocks = pygame.sprite.spritecollide(player, rocks, False)
+    if hits_playerAndRocks:
+        running = False
 
     # 显示屏幕上的内容
     screen.fill(Data_List.BLACK)
+    screen.blit(background_img, (0, 0))
     all_sprites.draw(screen)
 
     # 更新游戏
