@@ -6,6 +6,7 @@ import pygame
 import Data_List
 
 # 游戏初始化
+score = 0
 pygame.init()
 pygame.mixer.init()
 screen = pygame.display.set_mode((Data_List.WIDTH, Data_List.HEIGHT))
@@ -20,15 +21,29 @@ rock_img = (pygame.image.load
             (os.path.join("img", "rock.png")).convert())
 bullet_img = (pygame.image.load
               (os.path.join("img", "bullet.png")).convert())
+rock_images = []
+for i in range(7):
+    rock_images.append(pygame.image.load
+                       (os.path.join("img", f"rock{i}.png")).convert())
 
-#引入相关音频
-pygame.mixer.music.load(os.path.join("sound","background.ogg"))
+# 引入相关音频
+pygame.mixer.music.load(os.path.join("sound", "background.ogg"))
 pygame.mixer.music.set_volume(0.3)
-shoot_sound = pygame.mixer.Sound(os.path.join("sound","shoot.wav"))
+shoot_sound = pygame.mixer.Sound(os.path.join("sound", "shoot.wav"))
 expl_sounds = [
-    pygame.mixer.Sound(os.path.join("sound","expl0.wav")),
-    pygame.mixer.Sound(os.path.join("sound","expl1.wav"))
+    pygame.mixer.Sound(os.path.join("sound", "expl0.wav")),
+    pygame.mixer.Sound(os.path.join("sound", "expl1.wav"))
 ]
+
+font_name = pygame.font.match_font('arial')
+
+def draw_text(surf,text,size,x,y):
+    font = pygame.font.Font(font_name,size)
+    text_surface = font.render(text,True,Data_List.WIDTH)
+    text_rect = text_surface.get_rect()
+    text_rect.centerx = x
+    text_top = y
+    surf.blit(text_surface,text_rect)
 
 # 定义一个玩家类
 class Player(pygame.sprite.Sprite):
@@ -40,6 +55,9 @@ class Player(pygame.sprite.Sprite):
 
         # 设置玩家位置
         self.rect = self.image.get_rect()
+
+        self.radius = 23
+
         self.rect.centerx = Data_List.WIDTH / 2
         self.rect.bottom = Data_List.HEIGHT - 20
 
@@ -74,20 +92,37 @@ class Rock(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
         # 添加陨石的外观
-        self.image = rock_img
-        self.image.set_colorkey(Data_List.BLACK)
+        self.image_origin = random.choice(rock_images)
+        self.image_origin.set_colorkey(Data_List.BLACK)
+        self.image = self.image_origin.copy()
 
         # 设置陨石位置
-        self.rect = self.image.get_rect()
+        self.rect = self.image_origin.get_rect()
+
+        self.radius = self.rect.width / 2.2
+
         self.rect.x = random.randrange(0, Data_List.WIDTH - self.rect.width)
-        self.rect.y = random.randrange(-100, -40)
+        self.rect.y = random.randrange(-180, 100)
 
         # 定义变量存储速度
-        self.speedy = random.randrange(2, 10)
+        self.speedy = 1
         self.speedx = random.randrange(-3, 3)
+
+        # 定义变量存储旋转角度
+        self.total_degree = 0
+        self.rot_degree = random.randrange(-3, 3)
+
+    def rotate(self):
+        self.total_degree = self.total_degree + self.rot_degree
+        self.total_degree = self.total_degree % 360
+        self.image = pygame.transform.rotate(self.image_origin, self.total_degree)
+        center = self.rect.center
+        self.rect = self.image.get_rect()
+        self.rect.center = center
 
     # 控制角色移动
     def update(self):
+        self.rotate()
         self.rect.y += self.speedy
         self.rect.x += self.speedx
         if self.rect.top > Data_List.HEIGHT or self.rect.left > Data_List.WIDTH or self.rect.right < 0:
@@ -164,9 +199,10 @@ while running:
         r = Rock()
         all_sprites.add(r)
         rocks.add(r)
+        score = score + int(hit.radius)
 
     # 对玩家和陨石进行碰撞检测
-    hits_playerAndRocks = pygame.sprite.spritecollide(player, rocks, False)
+    hits_playerAndRocks = pygame.sprite.spritecollide(player, rocks, False, pygame.sprite.collide_circle)
     if hits_playerAndRocks:
         running = False
 
@@ -174,6 +210,7 @@ while running:
     screen.fill(Data_List.BLACK)
     screen.blit(background_img, (0, 0))
     all_sprites.draw(screen)
+    draw_text(screen,str(score),18,Data_List.WIDTH / 2,0)
 
     # 更新游戏
     pygame.display.update()
