@@ -29,11 +29,16 @@ for i in range(7):
 expl_anim = {}
 expl_anim['lg'] = []
 expl_anim['sm'] = []
+expl_anim['player'] = []
 for i in range(9):
+    # 加入爆炸图片
     expl_img = pygame.image.load(os.path.join("img", f"expl{i}.png")).convert()
     expl_img.set_colorkey(Data_List.BLACK)
     expl_anim['lg'].append(pygame.transform.scale(expl_img, (75, 75)))
     expl_anim['sm'].append(pygame.transform.scale(expl_img, (30, 30)))
+    player_expl_img = pygame.image.load(os.path.join("img", f"player_expl{i}.png")).convert()
+    player_expl_img.set_colorkey(Data_List.BLACK)
+    expl_anim['player'].append(player_expl_img)
 
 player_mini_img = pygame.transform.scale(player_img, (25, 20))
 player_mini_img.set_colorkey(Data_List.BLACK)
@@ -46,6 +51,7 @@ expl_sounds = [
     pygame.mixer.Sound(os.path.join("sound", "expl0.wav")),
     pygame.mixer.Sound(os.path.join("sound", "expl1.wav"))
 ]
+die_sound = pygame.mixer.Sound(os.path.join("sound", "rumble.ogg"))
 
 font_name = pygame.font.match_font('arial')
 
@@ -282,7 +288,7 @@ while running:
     hits_rockAndBullet = pygame.sprite.groupcollide(rocks, bullets, True, True)
     for hit in hits_rockAndBullet:
         random.choice(expl_sounds).play()
-        expl = Explosion(hit.rect.center,'lg')
+        expl = Explosion(hit.rect.center, 'lg')
         all_sprites.add(expl)
         new_rock()
         score = score + int(hit.radius)
@@ -295,6 +301,12 @@ while running:
         expl = Explosion(hit.rect.center, 'sm')
         all_sprites.add(expl)
         if player.health <= 0:
+            # 死亡动画
+            death_expl = Explosion(player.rect.center, 'player')
+            all_sprites.add(death_expl)
+            # 死亡音效
+            die_sound.play()
+            # 死亡主程序
             player.lives = player.lives - 1
             player.health = 100
             player.hide()
