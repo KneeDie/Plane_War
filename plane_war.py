@@ -22,6 +22,7 @@ rock_img = (pygame.image.load
 bullet_img = (pygame.image.load
               (os.path.join("img", "bullet.png")).convert())
 rock_images = []
+#7中不同的陨石图片
 for i in range(7):
     rock_images.append(pygame.image.load
                        (os.path.join("img", f"rock{i}.png")).convert())
@@ -31,7 +32,7 @@ expl_anim['lg'] = []
 expl_anim['sm'] = []
 expl_anim['player'] = []
 for i in range(9):
-    # 加入爆炸图片
+    # 引入爆炸图片
     expl_img = pygame.image.load(os.path.join("img", f"expl{i}.png")).convert()
     expl_img.set_colorkey(Data_List.BLACK)
     expl_anim['lg'].append(pygame.transform.scale(expl_img, (75, 75)))
@@ -40,19 +41,34 @@ for i in range(9):
     player_expl_img.set_colorkey(Data_List.BLACK)
     expl_anim['player'].append(player_expl_img)
 
+#引入生命值图片
 player_mini_img = pygame.transform.scale(player_img, (25, 20))
 player_mini_img.set_colorkey(Data_List.BLACK)
 
+#引入宝箱图片
+power_imgs = {}
+power_imgs['shield'] = pygame.image.load(os.path.join("img","shield.png")).convert()
+power_imgs['gun'] = pygame.image.load(os.path.join("img","gun.png")).convert()
+
 # 引入相关音频
+#背景音乐
 pygame.mixer.music.load(os.path.join("sound", "background.ogg"))
 pygame.mixer.music.set_volume(0.3)
+#攻击音效
 shoot_sound = pygame.mixer.Sound(os.path.join("sound", "shoot.wav"))
+#击中音效
 expl_sounds = [
     pygame.mixer.Sound(os.path.join("sound", "expl0.wav")),
     pygame.mixer.Sound(os.path.join("sound", "expl1.wav"))
 ]
+# 死亡音效
 die_sound = pygame.mixer.Sound(os.path.join("sound", "rumble.ogg"))
 
+#导入宝物音效
+shield_sound = pygame.mixer.Sound(os.path.join("sound", "pow0.wav"))
+gun_sound = pygame.mixer.Sound(os.path.join("sound", "pow1.wav"))
+
+#载入字体
 font_name = pygame.font.match_font('arial')
 
 
@@ -111,11 +127,12 @@ class Player(pygame.sprite.Sprite):
         self.rect.centerx = Data_List.WIDTH / 2
         self.rect.bottom = Data_List.HEIGHT - 20
 
-        # 定义变量存储速度、生命值
+        # 定义变量存储属性
         self.speedx = 8
         self.health = 100
         self.lives = 3
         self.hidden = False
+        self.gun = 1
 
     def hide(self):
         self.hidden = True
@@ -124,6 +141,8 @@ class Player(pygame.sprite.Sprite):
 
     # 控制角色移动
     def update(self):
+        #获取现在的时间
+        now = pygame.time.get_ticks()
         # 使用左右键控制角色移动
         key_pressed = pygame.key.get_pressed()
         if key_pressed[pygame.K_RIGHT]:
@@ -137,18 +156,40 @@ class Player(pygame.sprite.Sprite):
         if self.rect.left < 0:
             self.rect.left = 0
 
-        # 隐藏
-        if self.hidden and pygame.time.get_ticks() - self.hide_time > 1000:
+        # 隐藏时间控制
+        if self.hidden and now - self.hide_time > 1000:
             self.hidden = False
             self.rect.centerx = Data_List.WIDTH / 2
             self.rect.bottom = Data_List.HEIGHT - 20
 
+        #双发时间控制
+        if self.gun > 1 and now - self.gun_time > 5000:
+            self.gun = 1
+
+    # 定义函数用于发射子弹
     def shoot(self):
-        # 定义函数用于发射子弹
-        bullet = Bullet(self.rect.centerx, self.rect.centery)
-        all_sprites.add(bullet)
-        bullets.add(bullet)
-        shoot_sound.play()
+        #判断书否处于隐藏状态
+       if not(self.hidden):
+            if self.gun == 1:
+                # 单发
+                bullet = Bullet(self.rect.centerx, self.rect.centery)
+                all_sprites.add(bullet)
+                bullets.add(bullet)
+                shoot_sound.play()
+            elif self.gun >= 2:
+                #双发
+                bullet1 = Bullet(self.rect.left, self.rect.centery)
+                bullet2 = Bullet(self.rect.right, self.rect.centery)
+                all_sprites.add(bullet1)
+                all_sprites.add(bullet2)
+                bullets.add(bullet1)
+                bullets.add(bullet2)
+                shoot_sound.play()
+
+     #多发子弹
+    def gunup(self):
+        self.gun =self.gun + 1
+        self.gun_time = pygame.time.get_ticks()
 
 
 # 定义一个陨石类
@@ -251,12 +292,41 @@ class Explosion(pygame.sprite.Sprite):
                 self.rect.center = center
 
 
+#定义一个宝物类
+class Power(pygame.sprite.Sprite):
+    def __init__(self, center):
+        pygame.sprite.Sprite.__init__(self)
+        # 添加宝物的外观
+        self.type = random.choice(['shield','gun'])
+        self.image = power_imgs[self.type]
+        self.image.set_colorkey(Data_List.BLACK)
+        if self.type == 'shield':
+            shield_sound.play()
+        elif self.type == 'gun':
+            gun_sound.play()
+
+        # 设置宝物位置
+        self.rect = self.image.get_rect()
+        self.rect.center = center
+
+        # 定义变量存储速度
+        self.speedy = 3
+
+    # 控制角色移动
+    def update(self):
+        self.rect.y += self.speedy
+        if self.rect.top > Data_List.HEIGHT:
+            self.kill()
+
+
 # 定义一个列表存储所有对象
 all_sprites = pygame.sprite.Group()
 # 定义一个列表存储陨石
 rocks = pygame.sprite.Group()
 # 定义一个列表存储子弹
 bullets = pygame.sprite.Group()
+#定义一个列表存储宝箱对象
+powers = pygame.sprite.Group()
 
 # 生成玩家对象
 player = Player()
@@ -292,14 +362,20 @@ while running:
         all_sprites.add(expl)
         new_rock()
         score = score + int(hit.radius)
+        if random.random() > 0.1:
+            p = Power(hit.rect.center)
+            all_sprites.add(p)
+            powers.add(p)
 
     # 对玩家和陨石进行碰撞检测
     hits_playerAndRocks = pygame.sprite.spritecollide(player, rocks, True, pygame.sprite.collide_circle)
     for hit in hits_playerAndRocks:
+        #爆炸动画
         player.health = player.health - hit.radius
         new_rock()
         expl = Explosion(hit.rect.center, 'sm')
         all_sprites.add(expl)
+
         if player.health <= 0:
             # 死亡动画
             death_expl = Explosion(player.rect.center, 'player')
@@ -312,6 +388,16 @@ while running:
             player.hide()
         if player.lives == 0:
             running = False
+
+    #对玩家和宝物进行碰撞检测
+    hits_playerAndPowers = pygame.sprite.spritecollide(player, powers, True)
+    for hit in hits_playerAndPowers:
+        if hit.type == 'shield':
+            player.health = player.health + 20
+            if player.health > 100:
+                player.health = 100
+        elif hit.type == 'gun':
+            player.gunup()
 
     # 显示屏幕上的内容
     screen.fill(Data_List.BLACK)
