@@ -26,7 +26,16 @@ for i in range(7):
     rock_images.append(pygame.image.load
                        (os.path.join("img", f"rock{i}.png")).convert())
 
-player_mini_img = pygame.transform.scale(player_img,(25,20))
+expl_anim = {}
+expl_anim['lg'] = []
+expl_anim['sm'] = []
+for i in range(9):
+    expl_img = pygame.image.load(os.path.join("img", f"expl{i}.png")).convert()
+    expl_img.set_colorkey(Data_List.BLACK)
+    expl_anim['lg'].append(pygame.transform.scale(expl_img, (75, 75)))
+    expl_anim['sm'].append(pygame.transform.scale(expl_img, (30, 30)))
+
+player_mini_img = pygame.transform.scale(player_img, (25, 20))
 player_mini_img.set_colorkey(Data_List.BLACK)
 
 # 引入相关音频
@@ -40,40 +49,45 @@ expl_sounds = [
 
 font_name = pygame.font.match_font('arial')
 
-def draw_text(surf,text,size,x,y):
-    font = pygame.font.Font(font_name,size)
-    text_surface = font.render(text,True,Data_List.WIDTH)
+
+def draw_text(surf, text, size, x, y):
+    font = pygame.font.Font(font_name, size)
+    text_surface = font.render(text, True, Data_List.WIDTH)
     text_rect = text_surface.get_rect()
     text_rect.centerx = x
     text_top = y
-    surf.blit(text_surface,text_rect)
+    surf.blit(text_surface, text_rect)
 
-def draw_health(surf,hp,x,y):
-    #对血量出现负数进行预防
+
+def draw_health(surf, hp, x, y):
+    # 对血量出现负数进行预防
     if hp < 0:
         hp = 0
-    #基础属性
+    # 基础属性
     BAR_LENGTH = 100
     BAR_HEIGHT = 10
-    #填充血条
-    fill = (hp/100)*BAR_LENGTH
-    #画血条
-    outline_rect = pygame.Rect(x,y,BAR_LENGTH,BAR_HEIGHT)
-    fill_rect = pygame.Rect(x,y,fill,BAR_HEIGHT)
-    pygame.draw.rect(surf,Data_List.GREEN,fill_rect)
-    pygame.draw.rect(surf,Data_List.WHITE,outline_rect,2)
+    # 填充血条
+    fill = (hp / 100) * BAR_LENGTH
+    # 画血条
+    outline_rect = pygame.Rect(x, y, BAR_LENGTH, BAR_HEIGHT)
+    fill_rect = pygame.Rect(x, y, fill, BAR_HEIGHT)
+    pygame.draw.rect(surf, Data_List.GREEN, fill_rect)
+    pygame.draw.rect(surf, Data_List.WHITE, outline_rect, 2)
 
-def draw_lives(surf,lives,img,x,y):
+
+def draw_lives(surf, lives, img, x, y):
     for i in range(lives):
         img_rect = img.get_rect()
         img_rect.x = x + (30 * i)
         img_rect.y = y
-        surf.blit(img,img_rect)
+        surf.blit(img, img_rect)
+
 
 def new_rock():
     rock = Rock()
     all_sprites.add(rock)
     rocks.add(rock)
+
 
 # 定义一个玩家类
 class Player(pygame.sprite.Sprite):
@@ -100,7 +114,7 @@ class Player(pygame.sprite.Sprite):
     def hide(self):
         self.hidden = True
         self.hide_time = pygame.time.get_ticks()
-        self.rect.center = (Data_List.WIDTH / 2 , Data_List.HEIGHT + 500)
+        self.rect.center = (Data_List.WIDTH / 2, Data_List.HEIGHT + 500)
 
     # 控制角色移动
     def update(self):
@@ -117,7 +131,7 @@ class Player(pygame.sprite.Sprite):
         if self.rect.left < 0:
             self.rect.left = 0
 
-        #隐藏
+        # 隐藏
         if self.hidden and pygame.time.get_ticks() - self.hide_time > 1000:
             self.hidden = False
             self.rect.centerx = Data_List.WIDTH / 2
@@ -156,7 +170,7 @@ class Rock(pygame.sprite.Sprite):
         self.total_degree = 0
         self.rot_degree = random.randrange(-3, 3)
 
-    #陨石旋转
+    # 陨石旋转
     def rotate(self):
         self.total_degree = self.total_degree + self.rot_degree
         self.total_degree = self.total_degree % 360
@@ -187,7 +201,7 @@ class Bullet(pygame.sprite.Sprite):
         self.image = bullet_img
         self.image.set_colorkey(Data_List.BLACK)
 
-        # 设置陨石位置
+        # 设置子弹位置
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
@@ -200,6 +214,35 @@ class Bullet(pygame.sprite.Sprite):
         self.rect.y += self.speedy
         if self.rect.bottom < 0:
             self.kill()
+
+
+# 定义一个爆炸类
+class Explosion(pygame.sprite.Sprite):
+    def __init__(self, center, size):
+        pygame.sprite.Sprite.__init__(self)
+        # 添加爆炸的外观
+        self.size = size
+        self.image = expl_anim[self.size][0]
+
+        # 设置爆炸属性
+        self.rect = self.image.get_rect()
+        self.rect.center = center
+        self.frame = 0
+        self.last_update = pygame.time.get_ticks()
+
+    # 控制角色移动
+    def update(self):
+        now = pygame.time.get_ticks()
+        if (now - self.last_update) > 50:
+            self.last_update = now
+            self.frame = self.frame + 1
+            if self.frame == len(expl_anim[self.size]):
+                self.kill()
+            else:
+                self.image = expl_anim[self.size][self.frame]
+                center = self.rect.center
+                self.rect = self.image.get_rect()
+                self.rect.center = center
 
 
 # 定义一个列表存储所有对象
@@ -239,6 +282,8 @@ while running:
     hits_rockAndBullet = pygame.sprite.groupcollide(rocks, bullets, True, True)
     for hit in hits_rockAndBullet:
         random.choice(expl_sounds).play()
+        expl = Explosion(hit.rect.center,'lg')
+        all_sprites.add(expl)
         new_rock()
         score = score + int(hit.radius)
 
@@ -247,6 +292,8 @@ while running:
     for hit in hits_playerAndRocks:
         player.health = player.health - hit.radius
         new_rock()
+        expl = Explosion(hit.rect.center, 'sm')
+        all_sprites.add(expl)
         if player.health <= 0:
             player.lives = player.lives - 1
             player.health = 100
@@ -258,9 +305,9 @@ while running:
     screen.fill(Data_List.BLACK)
     screen.blit(background_img, (0, 0))
     all_sprites.draw(screen)
-    draw_text(screen,str(score),18,Data_List.WIDTH / 2,0)
-    draw_health(screen,player.health,10,30)
-    draw_lives(screen,player.lives,player_mini_img,Data_List.WIDTH - 100,15)
+    draw_text(screen, str(score), 18, Data_List.WIDTH / 2, 0)
+    draw_health(screen, player.health, 10, 30)
+    draw_lives(screen, player.lives, player_mini_img, Data_List.WIDTH - 100, 15)
 
     # 更新游戏
     pygame.display.update()
