@@ -74,10 +74,10 @@ font_name = pygame.font.match_font('arial')
 
 def draw_text(surf, text, size, x, y):
     font = pygame.font.Font(font_name, size)
-    text_surface = font.render(text, True, Data_List.WIDTH)
+    text_surface = font.render(text, True, Data_List.WHITE)
     text_rect = text_surface.get_rect()
     text_rect.centerx = x
-    text_top = y
+    text_rect.top = y
     surf.blit(text_surface, text_rect)
 
 
